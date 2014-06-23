@@ -18,9 +18,11 @@ from synnefo.webproject.settings.default import *
 from synnefo.util.entry_points import extend_list_from_entry_point, \
         extend_dict_from_entry_point
 
-
 # Provide common django settings and extend them from entry_point hooks
 INSTALLED_APPS = (
+    'debug_toolbar',
+    'debug_panel',
+    'django.contrib.staticfiles',
     'django.contrib.contenttypes',
     #'django.contrib.sessions',
     'django.contrib.sites',
@@ -28,6 +30,9 @@ INSTALLED_APPS = (
     'south',
     'synnefo.webproject'
 )
+
+STATIC_URL = '/static2/'
+
 INSTALLED_APPS = extend_list_from_entry_point(INSTALLED_APPS, 'synnefo', \
         'web_apps')
 
@@ -42,6 +47,8 @@ TEMPLATE_CONTEXT_PROCESSORS = extend_list_from_entry_point(
 
 
 MIDDLEWARE_CLASSES = (
+    #'debug_toolbar.middleware.DebugToolbarMiddleware',
+    'debug_panel.middleware.DebugPanelMiddleware',
     #'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -59,3 +66,24 @@ STATIC_FILES = extend_dict_from_entry_point(STATIC_FILES, 'synnefo', \
 LOGGING_SETUP['loggers'] = \
         extend_dict_from_entry_point(LOGGING_SETUP['loggers'], 'synnefo', \
                 'loggers')
+
+INTERNAL_IPS = ('94.66.117.195', '195.251.29.45', '127.0.0.1')
+
+CACHES = {
+    'default': {
+        'BACKEND':
+        'django.core.cache.backends.memcached.MemcachedCache',
+        'LOCATION': '127.0.0.1:11211',
+    },
+
+    # this cache backend will be used by django-debug-panel
+    'debug-panel': {
+        'BACKEND':
+        'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': '/var/tmp/debug-panel-cache',
+        'TIMEOUT': 300,
+        'OPTIONS': {
+            'MAX_ENTRIES': 200
+        }
+    }
+}
