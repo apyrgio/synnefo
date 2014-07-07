@@ -140,7 +140,8 @@ class UserJSONView(AdminJSONView):
             'visible': True,
         }
 
-        if users.validate_user_action(inst, "ACCEPT"):
+        if (users.validate_user_action(inst, "ACCEPT") and
+                inst.verification_code):
             extra_dict['activation_url'] = {
                 'display_name': "Activation URL",
                 'value': inst.get_activation_url(),
@@ -220,7 +221,6 @@ def details(request, query):
         ip_log_list = IPAddressLog.objects.filter(qor).order_by("allocated_at")
 
     for ipaddr in ip_log_list:
-        ipaddr.ip = IPAddress.objects.get(address=ipaddr.address)
         ipaddr.vm = VirtualMachine.objects.get(id=ipaddr.server_id)
         ipaddr.network = Network.objects.get(id=ipaddr.network_id)
         ipaddr.user = user
