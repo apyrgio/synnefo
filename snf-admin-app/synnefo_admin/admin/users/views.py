@@ -140,13 +140,13 @@ class UserJSONView(AdminJSONView):
             'visible': True,
         }
 
-        if (users.validate_user_action(inst, "ACCEPT") and
-                inst.verification_code):
-            extra_dict['activation_url'] = {
-                'display_name': "Activation URL",
-                'value': inst.get_activation_url(),
-                'visible': True,
-            }
+        #if (users.validate_user_action(inst, "ACCEPT") and
+        #        inst.verification_code):
+        #    extra_dict['activation_url'] = {
+        #        'display_name': "Activation URL",
+        #        'value': inst.get_activation_url(),
+        #        'visible': True,
+        #    }
 
         if inst.accepted_policy:
             extra_dict['moderation_policy'] = {
@@ -214,13 +214,11 @@ def details(request, query):
 
     ip_list = IPAddress.objects.filter(userid=user.uuid)
 
-    qor = [Q(server_id=vm.pk) for vm in vm_list]
-    ip_log_list = []
-    if qor:
-        qor = reduce(or_, qor)
-        ip_log_list = IPAddressLog.objects.filter(qor).order_by("allocated_at")
-        lim = settings.ADMIN_LIMIT_ASSOCIATED_ITEMS_PER_CATEGORY
-        ip_log_list = ip_log_list[:lim]
+    vm_ids = VirtualMachine.objects.filter(userid=user.uuid).values('pk')
+    ip_log_list = IPAddressLog.objects.filter(server_id__in=vm_ids).\
+        order_by("allocated_at")
+    lim = settings.ADMIN_LIMIT_ASSOCIATED_ITEMS_PER_CATEGORY
+    ip_log_list = ip_log_list[:lim]
 
     for ipaddr in ip_log_list:
         ipaddr.vm = VirtualMachine.objects.get(id=ipaddr.server_id)
