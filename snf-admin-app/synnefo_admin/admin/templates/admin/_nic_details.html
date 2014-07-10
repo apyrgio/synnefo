@@ -8,7 +8,7 @@
             <span class="title">{{ nic|repr }}</span>
             <span class="arrow  snf-angle-down"></span>
         </div>
-        <div class="lt">
+        <div class="rt">
             <span class="label">ID: {{nic.pk}}</span>
             <span class="label">MAC: {{ nic.mac }}</span>
             <span class="label">{{ nic.state|upper }}</span>
@@ -29,8 +29,8 @@
                     <dt>Name</dt><dd>{{ nic.name|default:"-" }}</dd>
                     <dt>Public</dt><dd>{{ nic.public }}</dd>
                     <dt>User ID</dt><dd>{{ nic.userid }}</dd>
-		            <dt>Created</dt><dd>{{ nic.created }} ({{ nic.created|timesince }} <strong>ago</strong>)</dd>
-		            <dt>Updated</dt><dd>{{ nic.updated }} ({{ nic.created|timesince }} <strong>ago</strong>)</dd>
+		            <dt>Created</dt><dd>{{ nic.created }} ({{ nic.created|timesince }} ago)</dd>
+		            <dt>Updated</dt><dd>{{ nic.updated }} ({{ nic.created|timesince }} ago)</dd>
                     <dt>State</dt><dd>{{ nic.state }}</dd>
                 </dl>
             </div>

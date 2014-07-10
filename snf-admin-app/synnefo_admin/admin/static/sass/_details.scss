@@ -4,6 +4,12 @@
 	h4 .title{
 		font-size: 24px;
 	}
+    .rt {
+        padding-top:5px;
+    }
+    .actions-per-item {
+        padding: 0;
+    }
 }
 
 .object-details {
@@ -14,7 +20,6 @@
             float: left;
         }
         .rt {
-            padding-top:5px;
             overflow: hidden;
         }
         .arrow {
@@ -54,7 +59,7 @@
 	}
 	h3 {
         font-size: 18px;
-		margin: 0 0 2em;
+		margin: 0 0 1em;
         font-weight: 400;
         line-height: $details-title-height;
         em {
@@ -115,23 +120,28 @@
 
 .tab-pane {
 	overflow: auto;
-	th {
-		color: $gray-dark;
-	}
 }
 
 .part-two {
 	&>.object-details {
         border-top: 2px solid $gray-light-extra;		
         background: lighten($body-bg, 3%);
-		padding: 20px;
+		padding:14px 20px;
 		.object-details {
 			padding: 5px 20px;
             &:hover {
                 background: lighten($body-bg, 5%);
             }
 		}
-	}
+    }
+    .object-details-content {
+        padding: 0 $details-title-height;
+    }
+    .custom-btn {
+        span {
+            padding: 5px;
+        }
+    }
 }
 
 
@@ -157,4 +167,25 @@
 }
 .snf-details-user {
     @extend .snf-user-full;
+}
+
+.show-hide-all {
+    span.snf-font-arrow-up {
+        @extend .snf-arrow-up;
+        display: none;
+        padding: 0;
+    }
+    span.snf-font-arrow-down {
+        @extend .snf-arrow-down;
+        display: inline;
+        padding: 0;
+    }
+    &.open {
+        .snf-font-arrow-up {
+            display: inline;
+        } 
+        .snf-font-arrow-down {
+            display: none;
+        }
+    }
 }
