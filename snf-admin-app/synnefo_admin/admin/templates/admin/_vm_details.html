@@ -6,7 +6,9 @@
     data-type="{{type}}">
   <h4 class="clearfix">
     <div class="lt">
+    {% if type != main_type %}
       <a href="{% url admin-details type vm.pk %}" class="snf-search icon-link" title="Details for {{ vm|repr }}"></a>
+    {% endif %}
         <span class="title">{{ vm|repr }}</span>
         <span class="arrow  snf-angle-down"></span>
     </div>
@@ -16,7 +18,6 @@
         {% endif %}
         {{ vm|object_status_label|safe }}
         <span class="label">ID: {{ vm.pk }}</span>
-        <span class="label">{{ vm|vm_public_ip }}</span>
         <span class="label flavor">
           <span class="cpu">{{ vm.flavor.cpu }}x</span>
           <span class="ram">{{ vm.flavor.ram}}MB</span>
