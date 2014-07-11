@@ -40,7 +40,7 @@ $(document).ready(function() {
 
 	var $lastClicked = null;
 	var $prevClicked = null;
-	selected = {
+	var selected = {
 		items: [],
 		actions: {}
 	};
@@ -143,7 +143,7 @@ $(document).ready(function() {
 				}
 			},
 		],
-		"order": [1, "asc"],
+		"order": [0, "asc"],
 		"createdRow": function(row, data, dataIndex) {
 			var extraIndex = data.length - 1;
 			row.id = data[extraIndex].id.value; //sets the dom id
@@ -165,24 +165,19 @@ $(document).ready(function() {
 	var btn2 = '<a href="" class="select select-all line-btn" data-karma="neutral" data-caution="warning" data-toggle="modal" data-target="#massive-actions-warning"><span>Select All</span></a>';
 	var btn3 = '<a href="" id="clear-all" class="disabled deselect line-btn" data-karma="neutral" data-caution="warning" data-toggle="modal" data-target="#clear-all-warning"><span class="snf-font-remove"></span><span>Clear All</span></a>';
 	var btn4 = '<a href="" class="disabled toggle-selected extra-btn line-btn" data-karma="neutral"><span class="text">Show selected </span><span class="badge num selected-num">0</span></a>';
-	var btn5 = '<a href="" id="reload-table" class="select line-btn" data-karma="neutral" data-caution="none"><span class="snf-font-reload"></span><span>Reload Table</span></a>';
+	var btn5 = '<a href="" id="reload-table" class="line-btn" data-karma="neutral" data-caution="none" title="Reload table"><span class="snf-font-reload"></span></a>';
 
 	if($actionbar.length > 0) {
-		$("div.custom-buttons").html(btn5+btn1+btn2+btn3+btn4);
+		$("div.custom-buttons:not(.bottom)").html(btn5+btn1+btn2+btn3+btn4);
 	}
 	else {
-		$("div.custom-buttons").html(btn5);
+		$("div.custom-buttons:not(.bottom)").html(btn5);
 	}
 	$('.container').on('click', '#reload-table', function(e) {
 		e.preventDefault();
 		$(tableDomID).dataTable().api().ajax.reload();
 	})
 
-	function trimedCellTemplate(strData, limit) {
-		console.log(strData, limit)
-		var html = '<span title="click to see">'+'<span data-container="body" data-toggle="popover" data-placement="bottom" data-content="'+strData+'">'+strData.substring(0, limit)+'...'+'</span>'+'</span>';
-		return html;
-	};
 
 	function isSelected() {
 		var tableLength = table.rows()[0].length;
@@ -281,7 +276,7 @@ $(document).ready(function() {
 					console.profileEnd("test");
 					console.timeEnd("test");
 					updateClearAll();
-				console.log($(tableMassiveDomID).find('tr').length)
+					console.log($(tableMassiveDomID).find('tr').length)
 				}
 			});
 		}
@@ -310,8 +305,20 @@ $(document).ready(function() {
 				return extraTemplate(data);
 			},
 		},
+			// "targets": '_all' this must be the last item of the array
+			{
+				"targets": '_all',
+				"render": function( data, type, row, meta ) {
+					if(data.length > maxCellChar) {
+						return trimedCellTemplate(data, maxCellChar);
+					}
+					else {
+						return data;
+					}
+				}
+			},
 		],
-		"order": [1, "asc"],
+		"order": [0, "asc"],
 		"lengthMenu": [[5, 10, 25, 50, -1], [5, 10, 25, 50, "All"]],
 		"dom": 'frtilp',
 		"language" : {
@@ -481,6 +488,11 @@ $(document).ready(function() {
 		}
 	};
 
+	function trimedCellTemplate(strData, limit) {
+		var html = '<span title="click to see">'+'<span data-container="body" data-toggle="popover" data-placement="bottom" data-content="'+strData+'">'+strData.substring(0, limit)+'...'+'</span>'+'</span>';
+		return html;
+	};
+
 	function checkboxTemplate(data, initState) {
 		if(data.length > maxCellChar) {
 			data = trimedCellTemplate(data, maxCellChar);
@@ -526,13 +538,12 @@ $(document).ready(function() {
 	function clickSummary(row) {
 		$(row).find('td:last-child a.expand-area').click(function(e) {
 			e.preventDefault();
-			e.stopPropagation();
 			var $summaryTd = $(this).closest('td');
 			var $btn = $summaryTd.find('.expand-area span');
 			var $summaryContent = $summaryTd.find('.info-summary');
 			
 			var summaryContentWidth = $summaryTd.closest('tr').width();
-			var summaryContPos = summaryContentWidth - $summaryTd.width() - parseInt($summaryContent.css('padding-left').replace("px", "")) -2; // border width?
+			var summaryContPos = summaryContentWidth - $summaryTd.width() - parseInt($summaryContent.css('padding-left').replace("px", "")) + parseInt($summaryTd.css('padding-left').replace("px", ""));
 
 			$summaryContent.css({
 				width: summaryContentWidth +'px',
@@ -595,8 +606,8 @@ $(document).ready(function() {
 		var items = selected.items;
 		var itemsL = items.length;
 		for (var i = 0; i<itemsL; i++) {
-			if(items[i].id === itemID) {
-				items.splice(i, 1);
+			if(String(items[i].id) === String(itemID)) {
+				selected.items.splice(i, 1);
 				break;
 			}
 		}
@@ -723,36 +734,8 @@ $(document).ready(function() {
 
 
 		/* Modals */
-	function showError(modal, errorSign) {
-		var $modal = $(modal);
-		var $errorMsg = $modal.find('*[data-error="'+errorSign+'"]');
-		$errorMsg.show();
-	};
 
-	function resetErrors(modal) {
-		var $modal = $(modal);
-		$modal.find('.error-sign').hide();
-	};
-
-	function checkInput(modal, inputArea, errorSign) {
-		var $inputArea = $(inputArea);
-		var $errorSign = $(modal).find('*[data-error="'+errorSign+'"]');
-
-		$inputArea.keyup(function() {
-			if($.trim($inputArea.val())) {
-				$errorSign.hide();
-			}
-		})
-
-	};
-	var defaultEmailSubj = $('.modal[data-type="contact"]').find('.subject').val();
-	var defaultEmailBody = $('.modal[data-type="contact"]').find('.email-content').val();
-	function resetInputs(modal) {
-		var $modal = $(modal);
-		$modal.find('input[type=text]').val(defaultEmailSubj);
-		$modal.find('textarea').val(defaultEmailBody);
-	};
-	function removeWarnings(modal) {
+	function removeWarningDupl(modal) {
 		var $modal = $(modal);
 		$modal.find('.warning-duplicate').remove();
 	}
@@ -765,9 +748,9 @@ $(document).ready(function() {
 	$('.modal .cancel').click(function(e) {
 		$('[data-toggle="popover"]').popover('hide');
 		var $modal = $(this).closest('.modal');
-		resetErrors($modal);
-		resetInputs($modal);
-		removeWarnings($modal);
+		snf.modals.resetErrors($modal);
+		snf.modals.resetInputs($modal);
+		removeWarningDupl($modal);
 		resetToggleAllBtn($modal);
 		// resetAll(tableDomID);
 		updateToggleAllSelect();
@@ -784,32 +767,32 @@ $(document).ready(function() {
 		var completeAction = true;
 		if(selected.items.length === 0) {
 			e.stopPropagation();
-			showError($modal, 'no-selected');
+			snf.modals.showError($modal, 'no-selected');
 			completeAction = false;
 		}
-		if($modal.attr('id') === 'user-contact') {
+		if($modal.attr('data-type') === 'contact') {
 			var $emailSubj = $modal.find('.subject');
 			var $emailCont = $modal.find('.email-content');
 			if(!$.trim($emailSubj.val())) {
 				e.stopPropagation();
-				showError($modal, 'empty-subject');
-				checkInput($modal, $emailSubj, 'empty-subject');
+				snf.modals.showError($modal, 'empty-subject');
+				snf.modals.checkInput($modal, $emailSubj, 'empty-subject');
 				completeAction = false;
 			}
 			if(!$.trim($emailCont.val())) {
 				// e.preventDefault();
 				e.stopPropagation();
-				showError($modal, 'empty-body')
-				checkInput($modal, $emailCont, 'empty-body');
+				snf.modals.showError($modal, 'empty-body')
+				snf.modals.checkInput($modal, $emailCont, 'empty-body');
 				completeAction = false;
 			}
 		}
 		if(completeAction) {
 			$('[data-toggle="popover"]').popover('hide');
 			performAction($modal);
-			resetErrors($modal);
-			resetInputs($modal);
-			removeWarnings($modal);
+			snf.modals.resetErrors($modal);
+			snf.modals.resetInputs($modal);
+			removeWarningDupl($modal);
 			resetAll(tableDomID);
 			resetToggleAllBtn($modal);
 		}
@@ -825,12 +808,20 @@ $(document).ready(function() {
 		var itemID = $tr.attr('data-itemid');
 		// uuidsArray has only the uuids of selected items, none of the other info
 		idsArray = [];
-		deselectRow(itemID)
-		removeSelected(itemID)
-		removeItem(itemID, false);
+		deselectRow(itemID);
+		removeSelected(itemID);
+		removeItem(itemID);
 		var selectedNum = selected.items.length;
-		for (var i=0; i< selectedNum; i++)
-			idsArray.push(selected.items[i].id);
+		if($(this).closest('.modal').attr('data-type') === 'contact') {
+			for (var i=0; i< selectedNum; i++) {
+				idsArray.push(selected.items[i].contact_id);
+			}
+		}
+		else {
+			for (var i=0; i< selectedNum; i++){
+				idsArray.push(selected.items[i].id);
+			}
+		}
 		$actionBtn.attr('data-ids','[' + idsArray + ']');
 		$tr.slideUp('slow', function() {
 			$(this).siblings('.hidden-row').first().css('display', 'table-row');
@@ -881,14 +872,14 @@ $(document).ready(function() {
 				else {
 					$notificationArea.find('.warning').before(htmlPending);
 				}
-				snf.funcs.showBottomModal($notificationArea);
+				snf.modals.showBottomModal($notificationArea);
 				$notificationArea.find('.warning').fadeIn('slow');
 			},
 			// complete: function()
 			success: function(response, statusText, jqXHR) {
 				var htmlSuccess = '<p class="log"><span class="success state-icon snf-font-admin snf-ok"></span>Action <em>"'+actionName+'"</em> for '+countItems+' items has <em class="succeed">succeed</em>.'+removeBtn+'</p>';
 				$notificationArea.find('#'+logID).replaceWith(htmlSuccess);
-				snf.funcs.showBottomModal($notificationArea);
+				snf.modals.showBottomModal($notificationArea);
 			},
 			error: function(jqXHR, statusText) {
 				console.log(jqXHR, statusText, jqXHR.status);
@@ -909,27 +900,11 @@ $(document).ready(function() {
 					$notificationArea.find('.container').append(warningMsg);
 				}
 
-				snf.funcs.showBottomModal($notificationArea);
+				snf.modals.showBottomModal($notificationArea);
 			}
 		});
 	};
 
-	$notificationArea.on('click', '.remove-log', function(e) {
-		e.preventDefault();
-		console.log($(this));
-		var $log = $(this).closest('.log');
-		$log.fadeOut('slow', function() {
-			$log.remove();
-			if($notificationArea.find('.log').length === 0) {
-				$notificationArea.find('.close-notifications').trigger('click');
-
-			}
-		});
-	});
-	$notificationArea.on('click', '.close-notifications', function(e) {
-		e.preventDefault();
-		snf.funcs.hideBottomModal($notificationArea);
-	});
 
 	function drawModal(modalID) {
 		var $tableBody = $(modalID).find('.table-selected tbody');
@@ -937,7 +912,6 @@ $(document).ready(function() {
 		var $counter = $(modalID).find('.num');
 		var rowsNum = selected.items.length;
 		var $actionBtn = $(modalID).find('.apply-action');
-		console.log('drawModal', $actionBtn);
 		var maxVisible = 5;
 		var currentRow;
 		var htmlRows = '';
@@ -961,7 +935,7 @@ $(document).ready(function() {
 				}
 				if(unique === true) {
 					idsArray.push(selected.items[i][uniqueProp]);
-					currentRow = templateRow.replace('data-itemid=""', 'data-itemid="'+selected.items[i].contact_id+'"');
+					currentRow = templateRow.replace('data-itemid=""', 'data-itemid="'+selected.items[i].id+'"');
 					currentRow = currentRow.replace('title=""', 'title="related with: '+selected.items[i].item_name+'"')
 					currentRow = currentRow.replace('<td class="full-name"></td>', '<td class="full-name">'+selected.items[i].contact_name+'</td>');
 					currentRow = currentRow.replace('<td class="email"><', '<td class="email">'+selected.items[i].contact_email+'<');
@@ -970,7 +944,7 @@ $(document).ready(function() {
 					htmlRows += currentRow;
 				}
 				else {
-					htmlRows = htmlRows.replace('" data-itemid="' + selected.items[i].contact_id + '"', ', '+selected.items[i].item_name+'" data-itemid="' + selected.items[i].contact_id+'"');
+					htmlRows = htmlRows.replace('" data-itemid="' + selected.items[i].id + '"', ', '+selected.items[i].item_name+'" data-itemid="' + selected.items[i].id+'"');
 					if(!warningInserted) {
 						$tableBody.closest('table').before(warningMsg);
 						warningInserted = true;
@@ -1046,7 +1020,7 @@ $(document).ready(function() {
 
 	 /* Filters */
 
-	 var filters = {};
+	var filters = {};
 
 	function dropdownSelect(filterEl) {
 		var $dropdownList = $(filterEl).find('.choices');
@@ -1059,28 +1033,31 @@ $(document).ready(function() {
 			if($(this).closest('.filter-dropdown').hasClass('filter-boolean')) {
 				if($li.hasClass('reset')) {
 					delete filters[key];
-					$li.find('.selection-indicator').toggleClass('snf-radio-unchecked snf-radio-checked');
-					$li.addClass('active');
-					$li.siblings('.active').find('.selection-indicator').toggleClass('snf-radio-unchecked snf-radio-checked');
-					$li.siblings('.active').removeClass('active');
-					$(this).closest(filterEl).find('.selected-value').text(value);
-				}
-				$li.toggleClass('active')
-				if($li.hasClass('active')) {
 					$li.find('.selection-indicator').removeClass('snf-radio-unchecked').addClass('snf-radio-checked');
-					$li.siblings('li').removeClass('active');
-					$li.siblings('li').find('.selection-indicator').removeClass('snf-radio-checked').addClass('snf-radio-unchecked');
-					$(this).closest(filterEl).find('.selected-value').text(value);
-					filters[key] = value;
+					$li.addClass('active');
+					$li.siblings('.active').find('.selection-indicator').removeClass('snf-radio-checked').addClass('snf-radio-unchecked');
+					$li.siblings('.active').removeClass('active');
+					$(this).closest(filterEl).find('.selected-value').text(String(value));
 				}
 				else {
-					delete filters[key];
-					var resetLabel = $li.siblings('.reset').text();
-					$li.siblings('li.reset').addClass('active');
-					$li.siblings('li.reset').find('.selection-indicator').removeClass('snf-radio-unchecked').addClass('snf-radio-checked');
-					$(this).closest(filterEl).find('.selected-value').text(resetLabel);
+					$li.toggleClass('active')
+					if($li.hasClass('active')) {
+						$li.find('.selection-indicator').removeClass('snf-radio-unchecked').addClass('snf-radio-checked');
+						$li.siblings('li').removeClass('active');
+						$li.siblings('li').find('.selection-indicator').removeClass('snf-radio-checked').addClass('snf-radio-unchecked');
+						$(this).closest(filterEl).find('.selected-value').text(value);
+						filters[key] = value;
+					}
+					else {
+						delete filters[key];
+						var resetLabel = $li.siblings('.reset').text();
+						$li.siblings('li.reset').addClass('active');
+						$li.siblings('li.reset').find('.selection-indicator').removeClass('snf-radio-unchecked').addClass('snf-radio-checked');
+						$(this).closest(filterEl).find('.selected-value').text(resetLabel);
+					}
 				}
 			}
+			// multichoice filter
 			else {
 				if($li.hasClass('reset')) {
 					delete filters[key];
@@ -1096,7 +1073,7 @@ $(document).ready(function() {
 					$li.find('.selection-indicator').toggleClass('snf-checkbox-unchecked snf-checkbox-checked');
 					if($li.hasClass('active')) {
 						$li.siblings('.reset').removeClass('active')
-						$li.siblings('.reset').find('.selection-indicator').addClass('snf-checkbox-unchecked').removeClass('snf-radio-checked');
+						$li.siblings('.reset').find('.selection-indicator').removeClass('snf-checkbox-checked').addClass('snf-checkbox-unchecked');
 						if($li.siblings('.active').length > 0) {
 							arrayFilter(filters, key, value);
 							$(this).closest(filterEl).find('.selected-value').append(', '+value)
@@ -1106,16 +1083,19 @@ $(document).ready(function() {
 							filters[key] = [value]
 						}
 					}
+					// deselect a choice
 					else {
 						if($li.siblings('.active').length >0) {
 							arrayFilter(filters, key, value, true);
-							$(this).closest(filterEl).find('.selected-value').text(filters[key])
+							console.log(filters[key])
+							$(this).closest(filterEl).find('.selected-value').text(filters[key].toString().replace(/\,/gi, ', '))
 						}
+						// deselect the only selection that the user made before
 						else {
 							delete filters[key];
 							var resetLabel = $li.siblings('.reset').text();
 							$li.siblings('li.reset').addClass('active');
-							$li.siblings('li.reset').find('.selection-indicator').removeClass('snf-radio-unchecked').addClass('snf-checkbox-checked');
+							$li.siblings('li.reset').find('.selection-indicator').removeClass('snf-checkbox-unchecked').addClass('snf-checkbox-checked');
 							$(this).closest(filterEl).find('.selected-value').text(resetLabel)
 
 						}
