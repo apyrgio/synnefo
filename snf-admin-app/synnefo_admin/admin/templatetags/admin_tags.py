@@ -27,6 +27,7 @@
 # those of the authors and should not be interpreted as representing official
 # policies, either expressed or implied, of GRNET S.A.
 
+from importlib import import_module
 from collections import OrderedDict
 from django import template
 import logging
@@ -37,6 +38,7 @@ import django_filters
 import synnefo_admin.admin.projects.utils as project_utils
 import synnefo_admin.admin.users.utils as user_utils
 import synnefo_admin.admin.ip_logs.utils as iplog_utils
+mod = import_module('astakos.im.management.commands.project-show')
 
 register = template.Library()
 
@@ -259,16 +261,33 @@ def verbify(action):
 
 
 @register.filter
+def get_project_members(project):
+    members, _ = mod.members_fields(project)
+    return members
+
+
+@register.filter
 def get_project_stats(project):
     """Create a dictionary with a summary for a project's stats."""
-    stats = OrderedDict()
-    if not project.is_base:
-        stats['Max per member'] = \
-            project_utils.display_project_resources(project, 'member')
-    stats['Total'] = project_utils.display_project_resources(project, 'total')
-    stats['Usage'] = project_utils.display_project_stats(project,
-                                                         'project_usage')
-    return stats
+    limit = project_utils.get_project_quota_category(project, "limit")
+    usage = project_utils.get_project_usage(project)
+    member = project_utils.get_project_quota_category(project, "member")
+    if not usage:
+        usage = [(name, '-',) for name, _ in limit]
+
+    if project.is_base:
+        all_stats = zip(limit, usage)
+    else:
+        all_stats = zip(member, limit, usage)
+
+    new_stats = OrderedDict()
+    for row in all_stats:
+        resource_name = row[0][0]
+        new_stats[resource_name] = []
+        for _, value in row:
+            new_stats[resource_name].append(value)
+
+    return new_stats
 
 
 @register.filter
