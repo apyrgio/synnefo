@@ -30,6 +30,8 @@ urlpatterns = patterns(
     url(r'^stats/(?P<component>.*)$', 'stats_component',
         name='admin-stats-component'),
     url(r'^json/(?P<type>.*)$', 'json_list', name='admin-json'),
+    url(r'^html/(?P<type>.*)/(?P<id>.*)$', 'compact_details',
+        name='admin-compact-details'),
     url(r'^actions/$', 'admin_actions', name='admin-actions'),
     url(r'^(?P<type>.*)/(?P<id>.*)$', 'details', name='admin-details'),
     url(r'^(?P<type>.*)$', 'catalog', name='admin-list'),

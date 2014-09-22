@@ -257,6 +257,19 @@ You cannot view it on your browser.""")
 
 
 @admin_user_required
+def compact_details(request, type, id):
+    """Admin-Interface compact details view."""
+    admin_log(request, type=type, id=id)
+    mod = get_view_module_or_404(type)
+    context = mod.compact_details(request, id)
+    context.update(default_dict)
+    context.update({'view_type': 'details'})
+
+    template = mod.templates['compact_details']
+    return direct_to_template(request, template, extra_context=context)
+
+
+@admin_user_required
 def details(request, type, id):
     """Admin-Interface generic details view."""
     admin_log(request, type=type, id=id)
