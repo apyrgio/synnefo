@@ -45,6 +45,7 @@ from .filters import UserFilterSet
 templates = {
     'list': 'admin/user_list.html',
     'details': 'admin/user_details.html',
+    'compact_details': 'admin/user_details_compact.html',
 }
 
 
@@ -186,6 +187,19 @@ def catalog(request):
     context['columns'] = ["ID", "E-mail", "First Name", "Last Name", "Active",
                           "Rejected", "Moderated", "Verified", ""]
     context['item_type'] = 'user'
+
+    return context
+
+
+def compact_details(request, query):
+    """Details view for Astakos users."""
+    user = get_user_or_404(query)
+
+    context = {
+        'main_item': user,
+        'main_type': 'user',
+        'action_dict': get_permitted_actions(cached_actions, request.user),
+    }
 
     return context
 
