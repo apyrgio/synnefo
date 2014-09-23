@@ -95,14 +95,9 @@ $(document).ready(function(){
 		if($($container).hasClass('empty')) {
 			var url = $container.attr('data-compact-url');
 			$.ajax({
-				url: url,
-				beforeSend: function() {
-					console.log('loading!')
-				}
+				url: url
 			})
 			.done(function(data, textStatus, jqXHR) {
-				console.log('data, textStatus, jqXHR')
-				console.log(data, textStatus, jqXHR)
 				$loader.css('display', 'none');
 				$container.append(data);
 				$container.find('.object-details-content').css('display', 'none');
@@ -110,23 +105,13 @@ $(document).ready(function(){
 				$container.removeClass('empty');
 			})
 			.fail(function(jqXHR, textStatus, error) {
-				$loader.css('display', 'none');
-				console.log('jqXHR, textStatus, error')
-				console.log(jqXHR, textStatus, error)
-				$container.append(jqXHR.responseText)
+				var msg = (error === 'timeout' ? 'Error: Request Timeout...' : jqXHR.responseText);
+					$loader.css('display', 'none');
+					$container.append(msg);
 			});
-		}
-		else {
-			console.log('einai idi gemato ;)')
 		}
 	};
 
-	function isEmpty($element) {
-		if($($element).html().trim() === '')
-			return true;
-		else
-			return false;
-	}
 
 	$('.main .object-details h4 .arrow').trigger('click');
 
@@ -191,7 +176,6 @@ $(document).ready(function(){
 	})
 
 	function setDropdownHeight() {
-		console.log('hi')
 	    var mainNavH = $('.navbar-default').height();
 	    var subNavH = $('.sub-nav').height();
 	    var windowH = $(window).height();
