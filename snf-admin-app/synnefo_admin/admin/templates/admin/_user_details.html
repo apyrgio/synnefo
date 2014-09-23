@@ -12,8 +12,14 @@
         </span>
     </h4>
 
-    <div class="object-details-content-wrapper"
+    <div class="object-details-content-wrapper empty"
         data-compact-url="{% url admin-compact-details main_type user|id %}">
+        <div class="spinner" style="display: block;">
+            <div class="bounce1"></div>
+            <div class="bounce2"></div>
+            <div class="bounce3"></div>
+            <em>Retrieving data</em>
+        </div>
     </div>
 
     {% include "admin/action_list_horizontal.html" %}

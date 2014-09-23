@@ -11,15 +11,17 @@ $(document).ready(function(){
 	$('.object-details h4 .arrow').click(function(){
 		var $expandBtn = $(this);
 		var hasNotClass = !$expandBtn.closest('h4').hasClass('expanded');
+		var $contentArea = $(this).closest('.object-details').find('.object-details-content-wrapper');
 		$expandBtn.closest('h4').toggleClass('expanded');
 
 		if(hasNotClass) {
 			$expandBtn.removeClass('snf-angle-down').addClass('snf-angle-up');
-			$expandBtn.closest('h4').siblings('.object-details-content').stop().slideDown('slow');
+			$contentArea.stop().slideDown('slow');
+			setContent($contentArea);
 		}
 		else {
 			$expandBtn.removeClass('snf-angle-up').addClass('snf-angle-down')
-			$expandBtn.closest('h4').siblings('.object-details-content').stop().slideUp('slow');
+			$contentArea.stop().slideUp('slow');
 		}
 
 		var $areas = $expandBtn.closest('.info-block.object-details') // *** add another class
@@ -58,37 +60,75 @@ $(document).ready(function(){
 	   // hide/show expand/collapse 
   
 
-  var txt_all = ['Expand all','Collapse all'];
-  
-
-  $('.show-hide-all span.txt').text(txt_all[0]);
-  
-  
-  $('.show-hide-all').click(function(e){
-    e.preventDefault();
-    $(this).toggleClass('open');
-    var tabs = $(this).parent('.info-block').find('.object-details-content');
-
-    if ($(this).hasClass('open')){
-      $(this).find('span.txt').text( txt_all[1]);
-      tabs.each(function() {
-        $(this).stop().slideDown('slow');
-        $(this).siblings('h4').addClass('expanded');
-        $(this).siblings('h4').find('.arrow').removeClass('snf-angle-down').addClass('snf-angle-up')
-      });
+	var txt_all = ['Expand all','Collapse all'];
 
 
-    } else {
-      $(this).find('span.txt').text( txt_all[0]);
-      tabs.each(function() {
-        $(this).stop().slideUp('slow');
-        $(this).siblings('h4').removeClass('expanded');
-        $(this).siblings('h4').find('.arrow').removeClass('snf-angle-up').addClass('snf-angle-down')
-      });
-    }
-  }); 
+	$('.show-hide-all span.txt').text(txt_all[0]);
 
-$('.main .object-details h4 .arrow').trigger('click')
+
+	$('.show-hide-all').click(function(e){
+	e.preventDefault();
+	$(this).toggleClass('open');
+	var tabs = $(this).parent('.info-block').find('.object-details-content-wrapper');
+
+	if ($(this).hasClass('open')) {
+		$(this).find('span.txt').text( txt_all[1]);
+		tabs.each(function() {
+			$(this).stop().slideDown('slow');
+			$(this).siblings('h4').addClass('expanded');
+			$(this).siblings('h4').find('.arrow').removeClass('snf-angle-down').addClass('snf-angle-up');
+			setContent($(this));
+		});
+	}
+	else {
+		$(this).find('span.txt').text( txt_all[0]);
+		tabs.each(function() {
+		    $(this).stop().slideUp('slow');
+		    $(this).siblings('h4').removeClass('expanded');
+		    $(this).siblings('h4').find('.arrow').removeClass('snf-angle-up').addClass('snf-angle-down')
+		});
+	}
+	});
+
+	function setContent($container) {
+		var $loader = $container.find('.spinner');
+		if($($container).hasClass('empty')) {
+			var url = $container.attr('data-compact-url');
+			$.ajax({
+				url: url,
+				beforeSend: function() {
+					console.log('loading!')
+				}
+			})
+			.done(function(data, textStatus, jqXHR) {
+				console.log('data, textStatus, jqXHR')
+				console.log(data, textStatus, jqXHR)
+				$loader.css('display', 'none');
+				$container.append(data);
+				$container.find('.object-details-content').css('display', 'none');
+				$container.find('.object-details-content').slideDown();
+				$container.removeClass('empty');
+			})
+			.fail(function(jqXHR, textStatus, error) {
+				$loader.css('display', 'none');
+				console.log('jqXHR, textStatus, error')
+				console.log(jqXHR, textStatus, error)
+				$container.append(jqXHR.responseText)
+			});
+		}
+		else {
+			console.log('einai idi gemato ;)')
+		}
+	};
+
+	function isEmpty($element) {
+		if($($element).html().trim() === '')
+			return true;
+		else
+			return false;
+	}
+
+	$('.main .object-details h4 .arrow').trigger('click');
 
 		/* Modals */
 
@@ -146,22 +186,23 @@ $('.main .object-details h4 .arrow').trigger('click')
 	});
 
     setDropdownHeight();
+	$(window).resize(function(){
+	    setDropdownHeight();
+	})
+
+	function setDropdownHeight() {
+		console.log('hi')
+	    var mainNavH = $('.navbar-default').height();
+	    var subNavH = $('.sub-nav').height();
+	    var windowH = $(window).height();
+	    // 20 is the distance from the bottom of the page so that
+	    // the dropdown does not collapse with the window
+	    var res = windowH - (mainNavH + subNavH) - 20;
+	    $('.dropdown-menu').each(function(){
+	        $(this).css('max-height', res);
+	    });
+	}
 });
 
-$(window).resize(function(){
-    setDropdownHeight();
-})
-
-function setDropdownHeight() {
-    var mainNavH = $('.navbar-default').height();
-    var subNavH = $('.sub-nav').height();
-    var windowH = $(window).height();
-    // 20 is the distance from the bottom of the page so that
-    // the dropdown does not collapse with the window
-    var res = windowH - (mainNavH + subNavH) - 20;
-    $('.dropdown-menu').each(function(){
-        $(this).css('max-height', res);
-    });
-}
 
 
