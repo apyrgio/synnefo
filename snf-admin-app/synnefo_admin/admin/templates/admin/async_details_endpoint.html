@@ -1,0 +1,19 @@
+{% load admin_tags %}
+
+{% comment %}
+This is the div that contains the URL for the actual details of the item.
+
+We rely on the fact that every instance is called "item" in the template
+context. The 'user', 'vm' etc. that are used in _user_details, _vm_details, ...
+are just aliases.
+{% endcomment %}
+
+<div class="object-details-content-wrapper empty"
+    data-compact-url="{% url admin-compact-details type item|id %}">
+    <div class="spinner" style="display: block;">
+        <div class="bounce1"></div>
+        <div class="bounce2"></div>
+        <div class="bounce3"></div>
+        <em>Retrieving data</em>
+    </div>
+</div>
