@@ -43,6 +43,7 @@ from .utils import (get_contact_name, get_contact_email, get_network_or_404,
 templates = {
     'list': 'admin/network_list.html',
     'details': 'admin/network_details.html',
+    'compact_details': 'admin/network_details_compact.html',
 }
 
 
@@ -171,8 +172,21 @@ def catalog(request):
     return context
 
 
+def compact_details(request, query):
+    """Details view only for a specific Cyclades Network."""
+    network = get_network_or_404(query)
+
+    context = {
+        'item': network,
+        'type': 'network',
+        'action_dict': get_permitted_actions(cached_actions, request.user),
+    }
+
+    return context
+
+
 def details(request, query):
-    """Details view for Astakos users."""
+    """Details view for a Cyclades Network and its associations."""
     network = get_network_or_404(query)
     associations = []
 

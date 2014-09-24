@@ -101,6 +101,11 @@ def catalog(request):
     return context
 
 
+def compact_details(request, query):
+    """Details view for Cyclades ip history."""
+    raise AdminHttp404("There are no details for any entry of the IP History")
+
+
 def details(request, query):
     """Details view for Cyclades ip history."""
     raise AdminHttp404("There are no details for any entry of the IP History")

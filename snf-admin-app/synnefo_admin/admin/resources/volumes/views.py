@@ -41,6 +41,7 @@ from .filters import VolumeFilterSet
 templates = {
     'list': 'admin/volume_list.html',
     'details': 'admin/volume_details.html',
+    'compact_details': 'admin/volume_details_compact.html',
 }
 
 
@@ -193,8 +194,21 @@ def catalog(request):
     return context
 
 
+def compact_details(request, query):
+    """Details view for a specific Cyclades Volume."""
+    volume = get_volume_or_404(query)
+
+    context = {
+        'item': volume,
+        'type': 'volume',
+        'action_dict': get_permitted_actions(cached_actions, request.user),
+    }
+
+    return context
+
+
 def details(request, query):
-    """Details view for Astakos users."""
+    """Details view for a Cyclades Volume and its associations."""
     volume = get_volume_or_404(query)
     associations = []
 

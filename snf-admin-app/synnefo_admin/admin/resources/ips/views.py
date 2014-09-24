@@ -44,6 +44,7 @@ from .filters import IPFilterSet
 templates = {
     'list': 'admin/ip_list.html',
     'details': 'admin/ip_details.html',
+    'compact_details': 'admin/ip_details_compact.html',
 }
 
 
@@ -153,7 +154,7 @@ JSON_CLASS = IPJSONView
 
 @has_permission_or_403(cached_actions)
 def do_action(request, op, id):
-    """Apply the requested action on the specified ip."""
+    """Apply the requested action on the specified IP."""
     if op == "contact":
         user = get_user_or_404(id)
     else:
@@ -167,7 +168,7 @@ def do_action(request, op, id):
 
 
 def catalog(request):
-    """List view for Cyclades ips."""
+    """List view for Cyclades IPs."""
     context = {}
     context['action_dict'] = get_permitted_actions(cached_actions,
                                                    request.user)
@@ -179,8 +180,21 @@ def catalog(request):
     return context
 
 
+def compact_details(request, query):
+    """Details view only for a specific Cyclades IP."""
+    ip = get_ip_or_404(query)
+
+    context = {
+        'item': ip,
+        'type': 'ip',
+        'action_dict': get_permitted_actions(cached_actions, request.user),
+    }
+
+    return context
+
+
 def details(request, query):
-    """Details view for Astakos users."""
+    """Details view for a Cyclades IP and its associations."""
     ip = get_ip_or_404(query)
     associations = []
 

@@ -42,6 +42,7 @@ from .actions import cached_actions
 templates = {
     'list': 'admin/vm_list.html',
     'details': 'admin/vm_details.html',
+    'compact_details': 'admin/vm_details_compact.html',
 }
 
 
@@ -197,8 +198,21 @@ def catalog(request):
     return context
 
 
+def compact_details(request, query):
+    """Details view only for a specific Cyclades VM."""
+    vm = get_vm_or_404(query)
+
+    context = {
+        'item': vm,
+        'type': 'vm',
+        'action_dict': get_permitted_actions(cached_actions, request.user),
+    }
+
+    return context
+
+
 def details(request, query):
-    """Details view for Astakos users."""
+    """Details view for a Cyclades VM and its associations."""
     vm = get_vm_or_404(query)
     associations = []
 

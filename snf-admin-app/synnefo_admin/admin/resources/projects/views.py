@@ -46,6 +46,7 @@ from .utils import (get_contact_id, get_contact_name, get_contact_email,
 templates = {
     'list': 'admin/project_list.html',
     'details': 'admin/project_details.html',
+    'compact_details': 'admin/project_details_compact.html',
 }
 
 
@@ -233,8 +234,21 @@ def custom_user_association(request, project):
         return UserAssociation(request, project.members.all())
 
 
+def compact_details(request, query):
+    """Details view only for a specific Astakos project."""
+    project = get_project_or_404(query)
+
+    context = {
+        'item': project,
+        'type': 'project',
+        'action_dict': get_permitted_actions(cached_actions, request.user),
+    }
+
+    return context
+
+
 def details(request, query):
-    """Details view for Astakos projects."""
+    """Details view for an Astakos project and its associations."""
     project = get_project_or_404(query)
     associations = []
 

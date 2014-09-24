@@ -192,12 +192,12 @@ def catalog(request):
 
 
 def compact_details(request, query):
-    """Details view for Astakos users."""
+    """Details view only for a specific Astakos user."""
     user = get_user_or_404(query)
 
     context = {
-        'main_item': user,
-        'main_type': 'user',
+        'item': user,
+        'type': 'user',
         'action_dict': get_permitted_actions(cached_actions, request.user),
     }
 
@@ -205,7 +205,7 @@ def compact_details(request, query):
 
 
 def details(request, query):
-    """Details view for Astakos users."""
+    """Details view for an Astakos user and its associations."""
     user = get_user_or_404(query)
     associations = []
     lim = admin_settings.ADMIN_LIMIT_ASSOCIATED_ITEMS_PER_CATEGORY
