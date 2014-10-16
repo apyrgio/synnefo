@@ -26,6 +26,12 @@ from synnefo_admin import admin_settings
 
 sign = admin_settings.ADMIN_FIELD_SIGN
 
+# I don't see Django having the below in a list, so this should do for now.
+lookup_types = ('regex', 'iregex', 'month', 'day', 'week_day', 'search',
+                'contains', 'icontains', 'iexact', 'startswith', 'istartswith',
+                'endswith', 'iendswith', 'isnull', 'exact', 'gt', 'gte', 'lt',
+                'lte', 'range', 'in', 'year')
+
 
 def prefix_strip(query):
     """Remove the prefix from the ID of Cyclades models.
@@ -121,7 +127,7 @@ def model_filter(func):
     return wrapper
 
 
-def malicious(field):
+def sensitive(field):
     """Check if query searches in private fields."""
     if 'token' in field or 'password' in field:
         return True
@@ -139,15 +145,23 @@ def update_queries(**queries):
     new_queries = queries.copy()
     for key, value in queries.iteritems():
         if isinstance(value, str) or isinstance(value, unicode):
+            # Extract the field from the value in queries like this: id=1
             nested_query = value.split(sign, 1)
             if len(nested_query) == 1:
                 continue
             field = nested_query[0]
             value = nested_query[1]
+
+            # Extract the lookup type from fields like this: date__gt
+            field_and_lt = field.rsplit('__', 1)
+            if len(field_and_lt) > 1 and field_and_lt[1] in lookup_types:
+                field = field_and_lt[0]
+                new_queries["lookup_type"] = field_and_lt[1]
+
             if value:
                 del new_queries[key]
                 # Do not filter sensitive data.
-                if not malicious(field):
+                if not sensitive(field):
                     new_queries[field] = value
     return new_queries
 
