@@ -1,0 +1,9 @@
+{% load admin_tags %}
+<div class="filter filter-date filter-input">
+	<div class="form-group">
+		<label title="{{ filter.label }} from">
+            {{ filter.label }} from
+			<input type="search" data-filter="{{ filter.name }}">
+		</label>
+	</div>
+</div>

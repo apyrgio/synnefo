@@ -23,6 +23,7 @@ from astakos.im import auth_providers
 
 from synnefo_admin.admin.queries_common import (query, model_filter,
                                                 get_model_field)
+from synnefo_admin.admin.filters import SnfDateRangeFilter
 
 from .utils import get_groups
 
@@ -154,8 +155,10 @@ class UserFilterSet(django_filters.FilterSet):
     has_not_auth_providers = django_filters.MultipleChoiceFilter(
         label='HAS NOT Auth Providers', action=filter_has_not_auth_providers,
         choices=auth_providers)
+    updated = SnfDateRangeFilter(label='Updated', name='updated')
 
     class Meta:
         model = AstakosUser
         fields = ('user', 'status', 'groups', 'has_auth_providers',
-                  'has_not_auth_providers', 'vm', 'vol', 'net', 'ip', 'proj')
+                  'has_not_auth_providers', 'updated', 'vm', 'vol', 'net',
+                  'ip', 'proj')

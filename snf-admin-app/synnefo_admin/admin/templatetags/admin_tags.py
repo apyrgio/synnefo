@@ -32,6 +32,7 @@ import synnefo_admin.admin.resources.projects.utils as project_utils
 import synnefo_admin.admin.resources.users.utils as user_utils
 import synnefo_admin.admin.resources.vms.utils as vm_utils
 from synnefo_admin.admin import utils
+from synnefo_admin.admin.filters import SnfDateRangeFilter
 mod = import_module('astakos.im.management.commands.project-show')
 
 register = template.Library()
@@ -262,6 +263,8 @@ def get_filter_type(filter):
         type = "choice"
     elif isinstance(filter, django_filters.MultipleChoiceFilter):
         type = "multichoice"
+    elif isinstance(filter, SnfDateRangeFilter):
+        type = "daterange"
     else:
         raise Exception("Unknown filter type: %s", filter)
     return type
