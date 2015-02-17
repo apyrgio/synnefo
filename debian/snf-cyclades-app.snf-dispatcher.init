@@ -16,7 +16,7 @@
 
 # /etc/init.d/snf-dispatcher: start and stop the dispatcher daemon
 
-DAEMON=/usr/bin/snf-dispatcher
+DAEMON=$(which snf-dispatcher)
 NAME="snf-dispatcher"
 DESCRIPTION="Synnefo Dispatcher Daemon"
 DAEMON_OPTS=''
