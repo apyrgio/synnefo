@@ -330,6 +330,23 @@ def delete(volume):
 
 
 @transaction.commit_on_success
+def detach(volume):
+    """Detach a Volume"""
+    server_id = volume.machine_id
+    if server_id is not None:
+        server = util.get_server(volume.userid, server_id, for_update=True,
+                                 non_deleted=True,
+                                 exception=faults.BadRequest)
+        server_attachments.detach_volume_new(server, volume)
+        log.info("Detach volume '%s' from server '%s', job: %s",
+                 volume.id, server_id, volume.backendjobid)
+    else:
+        raise faults.BadRequest("Volume is already detached")
+
+    return volume
+
+
+@transaction.commit_on_success
 def update(volume, name=None, description=None, delete_on_termination=None):
     if name is not None:
         utils.check_name_length(name, Volume.NAME_LENGTH,
