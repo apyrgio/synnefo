@@ -1267,6 +1267,19 @@ def add_attach_params(volume, disk):
         disk["reuse_data"] = "False"
 
 
+def add_detach_params(volume, disk):
+    """Add attach params for detachable volumes
+
+    Detachable volumes may exist only in the database and use the provider
+    scripts to implement the attach and detach functionality. In this case, we
+    will need to provide the necessary context to these scripts via the disk
+    parameters.
+
+    For the detach action, we must inform the provider to keep the data.
+    """
+    disk["keep_data"] = "True"
+
+
 def attach_volume(vm, volume, depends=[]):
     log.debug("Attaching volume %s to vm %s", volume, vm)
 
@@ -1312,9 +1325,42 @@ def attach_volume(vm, volume, depends=[]):
 
 def detach_volume(vm, volume, depends=[]):
     log.debug("Removing volume %s from vm %s", volume, vm)
+
+    disk = {}
+
+    disk_provider = volume.volume_type.provider
+    if disk_provider is not None:
+        disk["provider"] = disk_provider
+
+    if is_volume_type_detachable(volume.volume_type):
+        add_detach_params(volume, disk)
+
     kwargs = {
         "instance": vm.backend_vm_id,
-        "disks": [("remove", volume.backend_volume_uuid, {})],
+        "disks": [("remove", volume.backend_volume_uuid, disk)],
+        "depends": depends,
+    }
+    if vm.backend.use_hotplug():
+        kwargs["hotplug_if_possible"] = True
+    if settings.TEST:
+        kwargs["dry_run"] = True
+
+    with pooled_rapi_client(vm) as client:
+        return client.ModifyInstance(**kwargs)
+
+
+def delete_volume(vm, volume, depends=[]):
+    log.debug("Deleting volume %s", volume)
+
+    disk = {}
+
+    disk_provider = volume.volume_type.provider
+    if disk_provider is not None:
+        disk["provider"] = disk_provider
+
+    kwargs = {
+        "instance": vm.backend_vm_id,
+        "disks": [("remove", volume.backend_volume_uuid, disk)],
         "depends": depends,
     }
     if vm.backend.use_hotplug():

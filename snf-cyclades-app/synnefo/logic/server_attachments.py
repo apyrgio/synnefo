@@ -108,6 +108,36 @@ def _detach_volume(vm, volume):
     return jobid
 
 
+def delete_volume(vm, volume):
+    """Delete attached volume and update its status
+
+    The volume must be in 'IN_USE' status in order to be detached. This
+    function will send the corresponding job to Ganeti backend and update the
+    status of the volume to 'DELETING'.
+    """
+    _check_attachment(vm, volume)
+    if volume.status not in ["IN_USE", "ERROR"]:
+        raise faults.BadRequest("Cannot delete volume while volume is in"
+                                " '%s' status." % volume.status)
+
+    action_fields = {"disks": [("remove", volume, {})]}
+    comm = commands.server_command("DELETE_VOLUME",
+                                   action_fields=action_fields)
+    return comm(_delete_volume)(vm, volume)
+
+
+def _delete_volume(vm, volume):
+    jobid = backend.delete_volume(vm, volume)
+    log.info("Deleted volume '%s' from server '%s'. JobID: '%s'", volume.id,
+             volume.machine_id, jobid)
+    volume.backendjobid = jobid
+    if volume.delete_on_termination:
+        volume.status = "DELETING"
+    else:
+        volume.status = "DETACHING"
+    volume.save()
+
+
 def _check_attachment(vm, volume):
     """Check that the Volume is attached to the VM"""
     if volume.machine_id != vm.id:

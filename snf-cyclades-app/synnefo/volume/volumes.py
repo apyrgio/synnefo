@@ -320,13 +320,34 @@ def delete(volume):
         server = util.get_server(volume.userid, server_id, for_update=True,
                                  non_deleted=True,
                                  exception=faults.BadRequest)
-        server_attachments.detach_volume(server, volume)
-        log.info("Detach volume '%s' from server '%s', job: %s",
+        server_attachments.delete_volume(server, volume)
+        log.info("Deleting volume '%s' from server '%s', job: %s",
                  volume.id, server_id, volume.backendjobid)
     else:
-        raise faults.BadRequest("Cannot delete a detached volume")
+        raise faults.BadRequest("Volume is already detached. Deleting detached"
+                                " volumes will be available soon.")
 
     return volume
+
+    ## First attempt, for deleting via attaching
+    #if server_id is not None:
+    #    if util.is_volume_type_detachable(volume.volume_type):
+    #        volume = deh(volume)
+    #        log.debug("Setting detaching volume as DELETING, in order to"
+    #                  " delete it later.")
+    #        volume.status = "DELETING"
+    #        volume.save()
+    #    else:
+    #        server = util.get_server(volume.userid, server_id, for_update=True,
+    #                                 non_deleted=True,
+    #                                 exception=faults.BadRequest)
+    #        server_attachments.detach_volume(server, volume)
+    #else:
+    #    assert util.is_volume_type_detachable(volume.volume_type)
+    #    server_attachments.delete_volume(volume)
+    #    log.info("Deleting volume '%s', job: %s", volume.id,
+    #             volume.backendjobid)
+    #return volume
 
 
 @transaction.commit_on_success
