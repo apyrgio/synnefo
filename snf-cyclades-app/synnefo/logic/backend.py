@@ -502,16 +502,26 @@ def update_vm_disks(vm, disks, etime=None):
     # Disks that exist in DB but not in Ganeti
     for disk_name in (db_keys - gnt_keys):
         db_disk = db_disks[disk_name]
-        if db_disk.status != "DELETING" and skip_db_stale:
+
+        if db_disk.status not in ("DELETING", "DETACHING") and skip_db_stale:
             continue
-        if disk_is_stale(vm, disk):
+        if disk_is_detached(vm, db_disk):
+            log.debug("Marking disk '%s' as available", db_disk)
+            db_disk.status = "AVAILABLE"
+            db_disk.machine = None
+            db_disk.save()
+            changes.append(("modify", db_disk, {"status": "AVAILABLE"}))
+        elif disk_is_stale(vm, db_disk):
             log.debug("Removing stale disk '%s'", db_disk)
             db_disk.status = "DELETED"
             db_disk.deleted = True
             db_disk.save()
             changes.append(("remove", db_disk, {}))
         else:
-            log.info("disk '%s' is still being created" % db_disk)
+            log.info("disk '%s' is still being %s" %
+                     (db_disk, "created" if db_disk.status == "CREATING" else
+                      "detached")
+                     )
 
     # Disks that exist both in DB and in Ganeti
     for disk_name in (db_keys & gnt_keys):
@@ -975,6 +985,15 @@ def job_is_still_running(vm, job_id=None):
             raise e
 
 
+def disk_is_detached(vm, disk):
+    """Check if a disk is detached from the Ganeti backend."""
+    if (disk.status == "DETACHING" and
+            is_volume_type_detachable(disk.volume_type)):
+        if not job_is_still_running(vm, job_id=disk.backendjobid):
+            return True
+    return False
+
+
 def disk_is_stale(vm, disk, timeout=60):
     """Check if a disk is stale or exists in the Ganeti backend."""
     # First check the state of the disk
@@ -990,6 +1009,12 @@ def disk_is_stale(vm, disk, timeout=60):
             vm_info = get_instance_info(vm)
             if disk.backend_volume_uuid in vm_info["disk.names"]:
                 return False
+    elif (disk.status in ("DETACHING", "AVAILABLE") and
+          is_volume_type_detachable(disk.volume_type)):
+        if job_is_still_running(vm, job_id=disk.backendjobid):
+            return False
+        # TODO: Should I add something there?
+
     return True
 
 
