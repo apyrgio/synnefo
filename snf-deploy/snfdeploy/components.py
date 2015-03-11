@@ -593,9 +593,12 @@ class Ganeti(base.Component):
         "qemu-kvm",
         "python-bitarray",
         "bridge-utils",
+        "ganeti-htools",
+        "ganeti-haskell",
+        "ganeti-2.10",
         "snf-ganeti",
         "ganeti2",
-        "ganeti-instance-debootstrap"
+        "ganeti-instance-debootstrap",
         ]
 
     @update_admin
