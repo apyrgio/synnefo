@@ -290,6 +290,8 @@ def _create_volume(user_id, project, size, source_type, source_uuid,
                                    origin=origin,
                                    status="CREATING")
 
+    quotas.issue_and_accept_commission(volume, action="BUILD")
+
     # Store the size of the origin in the volume object but not in the DB.
     # We will have to change this in order to support detachable volumes.
     # FIXME: What does this mean?
