@@ -337,7 +337,7 @@ def detach(volume):
         server = util.get_server(volume.userid, server_id, for_update=True,
                                  non_deleted=True,
                                  exception=faults.BadRequest)
-        server_attachments.detach_volume_new(server, volume)
+        server_attachments.detach_volume(server, volume)
         log.info("Detach volume '%s' from server '%s', job: %s",
                  volume.id, server_id, volume.backendjobid)
     else:

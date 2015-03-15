@@ -74,40 +74,6 @@ def _attach_volume(vm, volume):
     return jobid
 
 
-def detach_volume_new(vm, volume):
-    """Detach a Volume from a VM
-
-    The volume must be in 'IN_USE' status in order to be detached. Also,
-    the root volume of the instance (index=0) can not be detached. This
-    function will send the corresponding job to Ganeti backend and update the
-    status of the volume to 'DETACHING'.
-
-    """
-
-    _check_attachment(vm, volume)
-    if volume.status not in ["IN_USE", "ERROR"]:
-        raise faults.BadRequest("Cannot detach volume while volume is in"
-                                " '%s' status." % volume.status)
-    if volume.index == 0:
-        raise faults.BadRequest("Cannot detach the root volume of a server")
-
-    action_fields = {"disks": [("remove", volume, {})]}
-    comm = commands.server_command("DETACH_VOLUME",
-                                   action_fields=action_fields)
-    return comm(_detach_volume_new)(vm, volume)
-
-
-def _detach_volume_new(vm, volume):
-    """Detach a Volume from a VM and update the Volume's status"""
-    jobid = backend.detach_volume(vm, volume)
-    log.info("Detached volume '%s' from server '%s'. JobID: '%s'", volume.id,
-             volume.machine_id, jobid)
-    volume.backendjobid = jobid
-    volume.status = "DETACHING"
-    volume.save()
-    return jobid
-
-
 def detach_volume(vm, volume):
     """Detach a Volume from a VM
 
@@ -137,10 +103,7 @@ def _detach_volume(vm, volume):
     log.info("Detached volume '%s' from server '%s'. JobID: '%s'", volume.id,
              volume.machine_id, jobid)
     volume.backendjobid = jobid
-    if volume.delete_on_termination:
-        volume.status = "DELETING"
-    else:
-        volume.status = "DETACHING"
+    volume.status = "DETACHING"
     volume.save()
     return jobid
 
