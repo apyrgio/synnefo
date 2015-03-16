@@ -326,8 +326,11 @@ def delete(volume):
         log.info("Deleting volume '%s' from server '%s', job: %s",
                  volume.id, server_id, volume.backendjobid)
     else:
-        raise faults.BadRequest("Volume is already detached. Deleting detached"
-                                " volumes will be available soon.")
+        if volume.backendjobid:
+            raise faults.BadRequest("Deleting an initialized volume will be"
+                                    " available soon.")
+        else:
+            util.mark_volume_as_deleted(volume, immediate=True)
 
     return volume
 

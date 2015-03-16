@@ -18,6 +18,7 @@ import logging
 from snf_django.lib.api import faults
 from django.conf import settings
 from synnefo.logic import backend, commands
+from synnefo.volume import util
 
 log = logging.getLogger(__name__)
 
@@ -131,15 +132,11 @@ def _delete_volume(vm, volume):
     log.info("Deleted volume '%s' from server '%s'. JobID: '%s'", volume.id,
              volume.machine_id, jobid)
     volume.backendjobid = jobid
-    if volume.delete_on_termination:
-        volume.status = "DELETING"
-    else:
-        volume.status = "DETACHING"
-    volume.save()
+    util.mark_volume_as_deleted(volume)
 
 
 def _check_attachment(vm, volume):
     """Check that the Volume is attached to the VM"""
     if volume.machine_id != vm.id:
         raise faults.BadRequest("Volume '%s' is not attached to server '%s'"
-                                % volume.id, vm.id)
+                                % (volume.id, vm.id))
