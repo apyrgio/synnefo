@@ -327,8 +327,8 @@ def delete(volume):
                  volume.id, server_id, volume.backendjobid)
     else:
         if volume.backendjobid:
-            raise faults.BadRequest("Deleting an initialized volume will be"
-                                    " available soon.")
+            raise faults.BadRequest("Deleting a detached initialized volume"
+                                    " will be available soon.")
         else:
             util.mark_volume_as_deleted(volume, immediate=True)
 
