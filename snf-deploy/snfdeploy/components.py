@@ -738,10 +738,10 @@ gnt-os modify \
 
     @base.run_cmds
     def initialize(self):
-        std = "cpu-count=1,disk-count=1,disk-size=1024"
+        std = "cpu-count=1,disk-count=0,disk-size=1024"
         std += ",memory-size=128,nic-count=1,spindle-use=1"
 
-        bound_min = "cpu-count=1,disk-count=1,disk-size=512"
+        bound_min = "cpu-count=1,disk-count=0,disk-size=512"
         bound_min += ",memory-size=128,nic-count=0,spindle-use=1"
 
         bound_max = "cpu-count=8,disk-count=16,disk-size=1048576"
