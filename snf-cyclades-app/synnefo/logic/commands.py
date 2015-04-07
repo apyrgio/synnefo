@@ -87,7 +87,7 @@ def server_command(action, action_fields=None):
     4) Send job to ganeti
     5) Update task and commit
     """
-    def decorator(func):
+    def decorator(func, quota_target=None):
         @wraps(func)
         @transaction.commit_on_success
         def wrapper(vm, *args, **kwargs):
@@ -96,10 +96,11 @@ def server_command(action, action_fields=None):
             vm.action = action
 
             commission_name = "client: api, resource: %s" % vm
-            quotas.handle_resource_commission(vm, action=action,
+            resource = vm if quota_target is None else quota_target
+            quotas.handle_resource_commission(resource, action=action,
                                               action_fields=action_fields,
                                               commission_name=commission_name)
-            vm.save()
+            resource.save()
 
             # XXX: Special case for server creation!
             if action == "BUILD":
@@ -125,17 +126,18 @@ def server_command(action, action_fields=None):
             try:
                 job_id = func(vm, *args, **kwargs)
             except Exception as e:
-                if vm.serial is not None and action != "BUILD":
+                if resource.serial is not None and action != "BUILD":
                     # Since the job never reached Ganeti, reject the commission
                     log.debug("Rejecting commission: '%s', could not perform"
-                              " action '%s': %s" % (vm.serial,  action, e))
+                              " action '%s': %s" %
+                              (resource.serial,  action, e))
                     transaction.rollback()
-                    quotas.reject_serial(vm.serial)
+                    quotas.reject_serial(resource.serial)
                     transaction.commit()
                 raise
 
             log.info("user: %s, vm: %s, action: %s, job_id: %s, serial: %s",
-                     user_id, vm.id, action, job_id, vm.serial)
+                     user_id, vm.id, action, job_id, resource.serial)
 
             # store the new task in the VM
             if job_id is not None:

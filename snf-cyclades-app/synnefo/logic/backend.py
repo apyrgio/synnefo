@@ -26,12 +26,13 @@ from synnefo import quotas
 from synnefo.api.util import release_resource
 from synnefo.util.mac2eui64 import mac2eui64
 from synnefo.logic import rapi
-from synnefo import volume
+from synnefo import volume as vol
 from synnefo.plankton.backend import (OBJECT_AVAILABLE, OBJECT_UNAVAILABLE,
                                       OBJECT_ERROR)
-from synnefo.volume.util import is_volume_type_detachable
 
 from logging import getLogger
+
+
 log = getLogger(__name__)
 
 
@@ -171,6 +172,7 @@ def process_op_status(vm, etime, jobid, opcode, status, logmsg, nics=None,
         # in reversed order.
         vm.backendtime = etime
 
+    deferred_jobs = []
     if status in rapi.JOB_STATUS_FINALIZED:
         if nics is not None:
             update_vm_nics(vm, nics, etime)
@@ -179,7 +181,7 @@ def process_op_status(vm, etime, jobid, opcode, status, logmsg, nics=None,
             # the diff between the DB and Ganeti disks. This is required in
             # order to update quotas for disks that changed, but not from this
             # job!
-            disk_changes = update_vm_disks(vm, disks, etime)
+            disk_changes, deferred_jobs = update_vm_disks(vm, disks, etime)
             job_fields["disks"] = disk_changes
 
     vm_deleted = False
@@ -227,6 +229,10 @@ def process_op_status(vm, etime, jobid, opcode, status, logmsg, nics=None,
         vm.flavor = new_flavor
 
     vm.save()
+
+    # Before exiting, do any deferred jobs that are left.
+    for (job, args, kwargs) in deferred_jobs:
+        job(*args, **kwargs)
 
 
 def find_new_flavor(vm, cpu=None, ram=None):
@@ -484,6 +490,7 @@ def update_vm_disks(vm, disks, etime=None):
     skip_db_stale = False
 
     changes = []
+    deferred_jobs = []
 
     # Disks that exist in Ganeti but not in DB
     for disk_name in (gnt_keys - db_keys):
@@ -527,6 +534,7 @@ def update_vm_disks(vm, disks, etime=None):
     for disk_name in (db_keys & gnt_keys):
         db_disk = db_disks[disk_name]
         gnt_disk = gnt_disks[disk_name]
+        delete_after_attach = False
         if not disks_are_equal(db_disk, gnt_disk):  # Modified Disk
             if gnt_disk["size"] != db_disk.size:
                 # Size of the disk has changed! TODO: Fix flavor!
@@ -535,11 +543,24 @@ def update_vm_disks(vm, disks, etime=None):
             if db_disk.status == "CREATING":
                 # Disk has been created
                 changes.append(("add", db_disk, {}))
+            if db_disk.status == "DELETING" and vm.helper is True:
+                # Detached disk has been attached to a helper server in order
+                # to be deleted.
+                log.info("Ha, an interesting Ganeti disk (%s): %s", disk_name,
+                         gnt_disk)
+                log.info("Attempt for removal of a detached disk detected."
+                         " Performing actual deletion of disk")
+                delete_after_attach = True
             # Update the disk in DB with the values from Ganeti disk
             [setattr(db_disk, f, gnt_disk[f]) for f in DISK_FIELDS]
             db_disk.save()
 
-    return changes
+            if delete_after_attach:
+                # Handle the special case of deleting a detached volume through
+                # a helper VM.
+                deferred_jobs.append((vol.volumes.delete, (db_disk,), {}),)
+
+    return changes, deferred_jobs
 
 
 def disks_are_equal(db_disk, gnt_disk):
@@ -621,7 +642,7 @@ def update_snapshot(snapshot_id, user_id, job_id, job_status, etime):
     if state != OBJECT_UNAVAILABLE:
         log.debug("Updating state of snapshot '%s' to '%s'", snapshot_id,
                   state)
-        volume.util.update_snapshot_state(snapshot_id, user_id, state=state)
+        vol.util.update_snapshot_state(snapshot_id, user_id, state=state)
 
 
 @transaction.commit_on_success
@@ -829,15 +850,15 @@ def create_instance(vm, nics, volumes, flavor, image):
 
     kw['disk_template'] = volumes[0].volume_type.template
     disks = []
-    for vol in volumes:
-        disk = {"name": vol.backend_volume_uuid,
-                "size": vol.size * 1024}
-        provider = vol.volume_type.provider
+    for volume in volumes:
+        disk = {"name": volume.backend_volume_uuid,
+                "size": volume.size * 1024}
+        provider = volume.volume_type.provider
         if provider is not None:
             disk["provider"] = provider
             if provider in settings.GANETI_CLONE_PROVIDERS:
-                disk["origin"] = vol.origin
-                disk["origin_size"] = vol.origin_size
+                disk["origin"] = volume.origin
+                disk["origin_size"] = volume.origin_size
             extra_disk_params = settings.GANETI_DISK_PROVIDER_KWARGS\
                                         .get(provider)
             if extra_disk_params is not None:
@@ -957,6 +978,13 @@ def vm_exists_in_backend(vm):
         raise e
 
 
+def get_volume_from_db(disk_name):
+    try:
+        return Volume.objects.get(id=disk_name)
+    except Volume.DoesNotExist:
+        return None
+
+
 def get_network_info(backend_network):
     with pooled_rapi_client(backend_network) as client:
         return client.GetNetwork(backend_network.network.backend_id)
@@ -988,7 +1016,7 @@ def job_is_still_running(vm, job_id=None):
 def disk_is_detached(vm, disk):
     """Check if a disk is detached from the Ganeti backend."""
     if (disk.status == "DETACHING" and
-            is_volume_type_detachable(disk.volume_type)):
+            vol.util.is_volume_type_detachable(disk.volume_type)):
         if not job_is_still_running(vm, job_id=disk.backendjobid):
             return True
     return False
@@ -1250,7 +1278,7 @@ def set_firewall_profile(vm, profile, nic):
     return None
 
 
-def add_attach_params(volume, disk):
+def add_attach_params(vol, disk):
     """Add attach params for detachable volumes
 
     Detachable volumes may exist only in the database and use the provider
@@ -1261,13 +1289,13 @@ def add_attach_params(volume, disk):
     For the attach action, we must inform the provider if the volume data have
     been initialized or not. This is shown if the backendjobid is set or not.
     """
-    if volume.backendjobid:
+    if vol.backendjobid:
         disk["reuse_data"] = "True"
     else:
         disk["reuse_data"] = "False"
 
 
-def add_detach_params(volume, disk):
+def add_detach_params(vol, disk):
     """Add attach params for detachable volumes
 
     Detachable volumes may exist only in the database and use the provider
@@ -1299,7 +1327,7 @@ def attach_volume(vm, volume, depends=[]):
     if extra_disk_params is not None:
         disk.update(extra_disk_params)
 
-    if is_volume_type_detachable(volume.volume_type):
+    if vol.util.is_volume_type_detachable(volume.volume_type):
         add_attach_params(volume, disk)
 
     kwargs = {
@@ -1332,7 +1360,7 @@ def detach_volume(vm, volume, depends=[]):
     if disk_provider is not None:
         disk["provider"] = disk_provider
 
-    if is_volume_type_detachable(volume.volume_type):
+    if vol.util.is_volume_type_detachable(volume.volume_type):
         add_detach_params(volume, disk)
 
     kwargs = {
@@ -1340,6 +1368,7 @@ def detach_volume(vm, volume, depends=[]):
         "disks": [("remove", volume.backend_volume_uuid, disk)],
         "depends": depends,
     }
+
     if vm.backend.use_hotplug():
         kwargs["hotplug_if_possible"] = True
     if settings.TEST:
@@ -1363,6 +1392,7 @@ def delete_volume(vm, volume, depends=[]):
         "disks": [("remove", volume.backend_volume_uuid, disk)],
         "depends": depends,
     }
+
     if vm.backend.use_hotplug():
         kwargs["hotplug_if_possible"] = True
     if settings.TEST:

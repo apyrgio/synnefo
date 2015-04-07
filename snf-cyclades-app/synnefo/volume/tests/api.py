@@ -36,9 +36,10 @@ class VolumeAPITest(BaseAPITest):
             operstate="ACTIVE",
             flavor__volume_type__disk_template="ext_vlmc")
         user = vm.userid
-        _data = {"display_name": "test_vol",
-                 "size": 2,
-                 "server_id": vm.id}
+        _data = {
+            "display_name": "test_vol",
+            "size": 2,
+        }
 
         # Test Success
         mrapi().ModifyInstance.return_value = 42
@@ -47,8 +48,24 @@ class VolumeAPITest(BaseAPITest):
                           json.dumps({"volume": _data}), "json")
         self.assertSuccess(r)
 
+        # Test Success (with server)
+        vm = VirtualMachineFactory(
+            operstate="ACTIVE",
+            flavor__volume_type__disk_template="ext_vlmc")
+        user = vm.userid
+        _data = {
+            "display_name": "test_vol",
+            "size": 2,
+            "server_id": vm.id,
+        }
+        mrapi().ModifyInstance.return_value = 42
+        with mocked_quotaholder():
+            r = self.post(VOLUMES_URL, user,
+                          json.dumps({"volume": _data}), "json")
+        self.assertSuccess(r)
+
         # Test create without size, name and server
-        for attr in ["display_name", "size", "server_id"]:
+        for attr in ["display_name", "size"]:
             data = deepcopy(_data)
             del data["size"]
             with mocked_quotaholder():

@@ -23,6 +23,7 @@ from synnefo.volume import util
 from synnefo.logic import server_attachments, utils, commands
 from synnefo.plankton.backend import OBJECT_AVAILABLE
 from synnefo import quotas
+from synnefo.api.util import get_random_helper_vm
 
 log = logging.getLogger(__name__)
 
@@ -307,16 +308,48 @@ def attach(server_id, volume_id):
     volume = common.get_resource("volume", volume_id, for_update=True)
     util.assert_detachable_volume_type(volume.volume_type)
     server = common.get_resource("server", server_id, for_update=True)
+    volume = assign_volume_to_server(server, volume)
     server_attachments.attach_volume(server, volume)
+
+    return volume
+
+
+def delete_detached_volume(volume):
+    """FIXME: Describe the weird logic of this function."""
+    # Fetch a random helper VM from an online and undrained Ganeti backend
+    server = get_random_helper_vm(for_update=True)
+    if server is None:
+        raise faults.ItemNotFound("Cannot find an available helper server")
+    log.debug("Using helper server %s for the removal of volume %s",
+              server, volume)
+
+    # Attach the volume to the helper server, in order to delete it
+    # internally later.
+    volume = assign_volume_to_server(server, volume)
+    server_attachments.attach_volume(server, volume)
+    volume.status = "DELETING"
+    volume.save()
 
     return volume
 
 
 @transaction.commit_on_success
 def delete(volume):
-    """Delete a Volume"""
-    # A volume is deleted by detaching it from the server that is attached.
-    # Deleting a detached volume is not implemented.
+    """Delete a Volume.
+
+    The canonical way of deleting a volume is to send a command to Ganeti to
+    remove the volume from a specific server. There are two cases however when
+    a volume may not be attached to a server:
+
+    * Case 1: The volume has been created only in DB and was never attached to
+    a server. In this case, we can simply mark the volume as deleted without
+    using Ganeti to do so.
+    * Case 2: The volume has been detached from a VM. This means that there are
+    still data in the storage backend. In order to delete them safely, we must
+    attach the VM to some server. We will use one of the instantiated helper
+    servers for this job and sent to it a delete command...
+    FIXME: Add beter explanation.
+    """
     server_id = volume.machine_id
     if server_id is not None:
         server = util.get_server(volume.userid, server_id, for_update=True,
@@ -325,34 +358,19 @@ def delete(volume):
         server_attachments.delete_volume(server, volume)
         log.info("Deleting volume '%s' from server '%s', job: %s",
                  volume.id, server_id, volume.backendjobid)
+    elif volume.backendjobid is None:
+        # Case 1: Uninitialized volume
+        log.debug("Attempting to delete uninitialized volume %s.", volume)
+        util.mark_volume_as_deleted(volume, immediate=True)
+        log.info("Deleting uninitialized volume '%s'", volume.id)
     else:
-        if volume.backendjobid:
-            raise faults.BadRequest("Deleting a detached initialized volume"
-                                    " will be available soon.")
-        else:
-            util.mark_volume_as_deleted(volume, immediate=True)
+        # Case 2: Detached volume
+        log.debug("Attempting to delete detached volume %s", volume)
+        delete_detached_volume(volume)
+        log.info("Deleting volume '%s' from helper server '%s', job: %s",
+                 volume.id, volume.machine.id, volume.backendjobid)
 
     return volume
-
-    ## First attempt, for deleting via attaching
-    #if server_id is not None:
-    #    if util.is_volume_type_detachable(volume.volume_type):
-    #        volume = deh(volume)
-    #        log.debug("Setting detaching volume as DELETING, in order to"
-    #                  " delete it later.")
-    #        volume.status = "DELETING"
-    #        volume.save()
-    #    else:
-    #        server = util.get_server(volume.userid, server_id, for_update=True,
-    #                                 non_deleted=True,
-    #                                 exception=faults.BadRequest)
-    #        server_attachments.detach_volume(server, volume)
-    #else:
-    #    assert util.is_volume_type_detachable(volume.volume_type)
-    #    server_attachments.delete_volume(volume)
-    #    log.info("Deleting volume '%s', job: %s", volume.id,
-    #             volume.backendjobid)
-    #return volume
 
 
 @transaction.commit_on_success

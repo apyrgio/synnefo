@@ -29,7 +29,7 @@ from synnefo.logic import backend, ips, utils
 from synnefo.logic.backend_allocator import BackendAllocator
 from synnefo.db.models import (NetworkInterface, VirtualMachine,
                                VirtualMachineMetadata, IPAddressLog, Network,
-                               Image, pooled_rapi_client)
+                               Image, Backend, pooled_rapi_client)
 from vncauthproxy.client import request_forwarding as request_vnc_forwarding
 from synnefo.logic import rapi
 from synnefo.volume.volumes import _create_volume
@@ -43,10 +43,29 @@ log = logging.getLogger(__name__)
 server_created = dispatch.Signal(providing_args=["created_vm_params"])
 
 
+def create_helpers(userid, name, password, flavor, image_id, metadata={},
+                   personality=[], networks=None, use_backend=None,
+                   project=None, volumes=None):
+
+    if use_backend is None:
+        backends = Backend.objects.filter(offline=False, drained=False)
+    else:
+        backends = [use_backend]
+
+    vms = []
+    for b in backends:
+        vm = create(userid, name, password, flavor, image_id, metadata,
+                    personality, networks, use_backend, project, volumes,
+                    helper=True)
+        vms.append(vm)
+
+    return vms
+
+
 @transaction.commit_on_success
 def create(userid, name, password, flavor, image_id, metadata={},
            personality=[], networks=None, use_backend=None, project=None,
-           volumes=None):
+           volumes=None, helper=False):
 
     utils.check_name_length(name, VirtualMachine.VIRTUAL_MACHINE_NAME_LENGTH,
                             "Server name is too long")
@@ -116,6 +135,9 @@ def create(userid, name, password, flavor, image_id, metadata={},
     if project is None:
         project = userid
 
+    if helper is None:
+        helper = False
+
     # We must save the VM instance now, so that it gets a valid
     # vm.backend_vm_id.
     vm = VirtualMachine.objects.create(name=name,
@@ -125,7 +147,8 @@ def create(userid, name, password, flavor, image_id, metadata={},
                                        imageid=image["id"],
                                        image_version=image["version"],
                                        flavor=flavor,
-                                       operstate="BUILD")
+                                       operstate="BUILD",
+                                       helper=helper)
     log.info("Created entry in DB for VM '%s'", vm)
 
     # Associate the ports with the server

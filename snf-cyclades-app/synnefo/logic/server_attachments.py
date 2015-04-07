@@ -56,7 +56,7 @@ def attach_volume(vm, volume):
         action_fields = {}
     comm = commands.server_command("ATTACH_VOLUME",
                                    action_fields=action_fields)
-    return comm(_attach_volume)(vm, volume)
+    return comm(_attach_volume, quota_target=volume)(vm, volume)
 
 
 def _attach_volume(vm, volume):
@@ -95,7 +95,7 @@ def detach_volume(vm, volume):
     action_fields = {"disks": [("remove", volume, {})]}
     comm = commands.server_command("DETACH_VOLUME",
                                    action_fields=action_fields)
-    return comm(_detach_volume)(vm, volume)
+    return comm(_detach_volume, quota_target=volume)(vm, volume)
 
 
 def _detach_volume(vm, volume):
@@ -124,7 +124,7 @@ def delete_volume(vm, volume):
     action_fields = {"disks": [("remove", volume, {})]}
     comm = commands.server_command("DELETE_VOLUME",
                                    action_fields=action_fields)
-    return comm(_delete_volume)(vm, volume)
+    return comm(_delete_volume, quota_target=volume)(vm, volume)
 
 
 def _delete_volume(vm, volume):
@@ -137,6 +137,6 @@ def _delete_volume(vm, volume):
 
 def _check_attachment(vm, volume):
     """Check that the Volume is attached to the VM"""
-    if volume.machine_id != vm.id:
+    if volume.machine_id != vm.id and not vm.helper:
         raise faults.BadRequest("Volume '%s' is not attached to server '%s'"
                                 % (volume.id, vm.id))
