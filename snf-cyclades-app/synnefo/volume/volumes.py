@@ -261,6 +261,18 @@ def _create_volume(user_id, project, size, source_type, source_uuid,
     return volume
 
 
+def attach(server_id, volume_id):
+    """Attach a volume to a server."""
+    from synnefo.management import common
+
+    volume = common.get_resource("volume", volume_id, for_update=True)
+    server = util.get_server(volume.userid, server_id, for_update=True,
+                             non_deleted=True, exception=faults.BadRequest)
+    server_attachments.attach_volume(server, volume)
+
+    return volume
+
+
 @transaction.commit_on_success
 def delete(volume):
     """Delete a Volume"""
