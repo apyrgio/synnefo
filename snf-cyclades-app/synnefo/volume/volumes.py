@@ -298,8 +298,16 @@ def _create_volume(user_id, project, size, source_type, source_uuid,
     return volume
 
 
-def attach(*args, **kwargs):
-    pass
+def attach(server_id, volume_id):
+    """Attach a volume to a server."""
+    from synnefo.management import common
+
+    volume = common.get_resource("volume", volume_id, for_update=True)
+    util.assert_detachable_volume_type(volume.volume_type)
+    server = common.get_resource("server", server_id, for_update=True)
+    server_attachments.attach_volume(server, volume)
+
+    return volume
 
 
 @transaction.commit_on_success
