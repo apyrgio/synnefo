@@ -60,6 +60,7 @@ def attach_volume(vm, volume):
 
 def _attach_volume(vm, volume):
     """Attach a Volume to a VM and update the Volume's status."""
+    util.assign_volume_to_server(vm, volume)
     jobid = backend.attach_volume(vm, volume)
     log.info("Attached volume '%s' to server '%s'. JobID: '%s'", volume.id,
              volume.machine_id, jobid)

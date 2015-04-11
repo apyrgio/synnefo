@@ -44,6 +44,30 @@ def assert_detachable_volume_type(volume_type):
                                 volume_type.name)
 
 
+def assign_volume_to_server(server, volume, index=None):
+    """Assign a volume to a server.
+
+    This function works at DB level. It associates the volume with server and
+    calculates the index of the volume in the server, if not given.
+    """
+    if volume.index is None and index is None:
+        # Get an list of indexes of the volumes that are attached to the given
+        # VM.
+        indexes = map(lambda v: v.index, server.volumes.filter(deleted=False))
+        if indexes is []:
+            # If the server has no volumes, automatically assign the index 0.
+            index = 0
+        else:
+            # Else, find the largest index and add 1.
+            index = reduce(max, indexes) + 1
+
+    volume.index = index
+    volume.machine = server
+    volume.save()
+
+    return volume
+
+
 def get_volume(user_id, volume_id, for_update=False,
                non_deleted=False,
                exception=faults.ItemNotFound):

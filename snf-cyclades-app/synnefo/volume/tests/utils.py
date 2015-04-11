@@ -18,6 +18,7 @@ import django.test
 from django.test.utils import override_settings
 from synnefo.volume import util
 from snf_django.lib.api import faults
+from synnefo.db import models_factory as mf
 
 
 class MockVolumeType(object):
@@ -59,3 +60,43 @@ class DetachableVolumeTypesTest(django.test.TestCase):
         # Detachable template and assert
         volume_type = MockVolumeType("template1")
         util.assert_detachable_volume_type(volume_type)
+
+
+class VolumeUtilsTest(django.test.TestCase):
+
+    """Various tests for volume utils."""
+
+    #def setUp(self):
+        #self.userid = "test_user"
+        #self.size = 1
+        #self.vm = mf.VirtualMachineFactory()
+        #self.vm = mf.VirtualMachineFactory(
+        #    userid=self.userid,
+        #    flavor__volume_type__disk_template="ext_archipelago")
+        #self.kwargs = {"user_id": self.userid,
+        #               "size": self.size,
+        #               "server_id": self.vm.id}
+
+    def test_assign_to_server(self):
+        """Test if volume assignment to server works properly"""
+        # Test if a volume is associated with a server and that the index is 0
+        vm = mf.VirtualMachineFactory()
+        vol1 = mf.VolumeFactory()
+        util.assign_volume_to_server(vm, vol1)
+        self.assertEqual(vol1.machine, vm)
+        self.assertEqual(vm.volumes.all(), [vol1])
+        self.assertEqual(vol1.index, 0)
+
+        # Test that a new volume gets the index 1 automatically
+        vol2 = mf.VolumeFactory()
+        util.assign_volume_to_server(vm, vol2)
+        self.assertEqual(vol2.machine, vm)
+        self.assertItemsEqual(vm.volumes.all(), [vol1, vol2])
+        self.assertEqual(vol2.index, 1)
+
+        # Test that the index can be set by the user
+        vol2 = mf.VolumeFactory()
+        util.assign_volume_to_server(vm, vol2, index=3)
+        self.assertEqual(vol2.machine, vm)
+        self.assertItemsEqual(vm.volumes.all(), [vol1, vol2, vol2])
+        self.assertEqual(vol2.index, 3)
