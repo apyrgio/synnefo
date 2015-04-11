@@ -31,27 +31,105 @@ log = logging.getLogger(__name__)
 def create(user_id, size, server_id, name=None, description=None,
            source_volume_id=None, source_snapshot_id=None,
            source_image_id=None, volume_type_id=None, metadata=None,
-           project=None):
+           project_id=None):
+    """Create a new volume and optionally attach it to a server.
 
-    # Currently we cannot create volumes without being attached to a server
-    if server_id is None:
-        raise faults.BadRequest("Volume must be attached to server")
-    server = util.get_server(user_id, server_id, for_update=True,
-                             non_deleted=True,
-                             exception=faults.BadRequest)
-
-    server_vtype = server.flavor.volume_type
+    This function serves as the main entry-point for volume creation. It gets
+    the necessary data either from the API or from an snf-manage command and
+    then feeds that data to the lower-level functions that handle the actual
+    creation of the volume and the server attachments.
+    """
+    # Get volume type
     if volume_type_id is not None:
         volume_type = util.get_volume_type(volume_type_id,
                                            include_deleted=False,
                                            exception=faults.BadRequest)
-        if volume_type != server_vtype:
-            raise faults.BadRequest("Cannot create a volume with type '%s' to"
-                                    " a server with volume type '%s'."
-                                    % (volume_type.id, server_vtype.id))
     else:
-        volume_type = server_vtype
+        raise faults.BadRequest("Volume type must be provided")
 
+    # Determine the course of action based on volume type.
+    if util.is_volume_type_detachable(volume_type):
+        # If the volume type is detachable, then we will create a detached
+        # volume and, if given a server id, attach it to a server.
+        volume = create_detachable(user_id, size, name=name,
+                                   description=description,
+                                   source_image_id=source_image_id,
+                                   source_snapshot_id=source_snapshot_id,
+                                   source_volume_id=source_volume_id,
+                                   volume_type=volume_type, metadata={},
+                                   project_id=project_id)
+        if server_id:
+            volume = attach(server_id, volume.id)
+        return volume
+    else:
+        # Else, we must create and attach a volume to a server.
+        return create_and_attach(user_id, size, server_id, name=name,
+                                 description=description,
+                                 source_image_id=source_image_id,
+                                 source_snapshot_id=source_snapshot_id,
+                                 source_volume_id=source_volume_id,
+                                 volume_type=volume_type, metadata={},
+                                 project_id=project_id)
+
+
+def create_detachable(user_id, size, name=None, description=None,
+                      source_volume_id=None, source_snapshot_id=None,
+                      source_image_id=None, volume_type=None, metadata=None,
+                      project_id=None):
+    """Create a standalone detachable volume.
+
+    This function creates a volume in the database and then instantly marks it
+    as AVAILABLE. While the quota handling is done by `create_common`, one
+    should know that even though the volume does not exist at that point in the
+    backend, the user's quota will be updated as if it does.
+    """
+    volume = create_common(user_id, size, name=name, description=description,
+                           source_image_id=source_image_id,
+                           source_snapshot_id=source_snapshot_id,
+                           source_volume_id=source_volume_id,
+                           volume_type=volume_type, metadata={},
+                           project_id=project_id)
+
+    # If the volume has been created in the DB, consider it available.
+    volume.status = "AVAILABLE"
+    volume.save()
+
+    return volume
+
+
+def create_and_attach(user_id, size, server_id, name=None, description=None,
+                      source_volume_id=None, source_snapshot_id=None,
+                      source_image_id=None, volume_type=None, metadata=None,
+                      project_id=None):
+    """Create and attach a non-detachable volume."""
+    if server_id is None:
+        raise faults.BadRequest("Volume must be attached to server")
+
+    volume = create_common(user_id, size, name=name, description=description,
+                           source_image_id=source_image_id,
+                           source_snapshot_id=source_snapshot_id,
+                           source_volume_id=source_volume_id,
+                           volume_type=volume_type, metadata={},
+                           project_id=project_id)
+
+    server = util.get_server(user_id, server_id, for_update=True,
+                             non_deleted=True,
+                             exception=faults.BadRequest)
+
+    server_attachments.attach_volume(server, volume)
+
+    return volume
+
+
+def create_common(user_id, size, name=None, description=None,
+                  source_volume_id=None, source_snapshot_id=None,
+                  source_image_id=None, volume_type=None, metadata=None,
+                  project_id=None):
+    """Common tasks and checks for the creation of a new volume.
+
+    The main bulk of the checks is done by `_create_volume`, which is also
+    called when creating a new server.
+    """
     # Assert that not more than one source are used
     sources = filter(lambda x: x is not None,
                      [source_volume_id, source_snapshot_id, source_image_id])
@@ -71,8 +149,8 @@ def create(user_id, size, server_id, name=None, description=None,
         source_type = "blank"
         source_uuid = None
 
-    if project is None:
-        project = user_id
+    if project_id is None:
+        project_id = user_id
 
     if metadata is not None and \
        len(metadata) > settings.CYCLADES_VOLUME_MAX_METADATA:
@@ -80,10 +158,9 @@ def create(user_id, size, server_id, name=None, description=None,
                                 "items" %
                                 settings.CYCLADES_VOLUME_MAX_METADATA)
 
-    volume = _create_volume(server, user_id, project, size,
-                            source_type, source_uuid,
-                            volume_type=volume_type, name=name,
-                            description=description, index=None)
+    volume = _create_volume(user_id, project_id, size, source_type,
+                            source_uuid, volume_type=volume_type,
+                            name=name, description=description, index=None)
 
     if metadata is not None:
         for meta_key, meta_val in metadata.items():
@@ -93,25 +170,27 @@ def create(user_id, size, server_id, name=None, description=None,
                                     "Metadata key is too long")
             volume.metadata.create(key=meta_key, value=meta_val)
 
-    server_attachments.attach_volume(server, volume)
-
     return volume
 
 
-def _create_volume(server, user_id, project, size, source_type, source_uuid,
+def _create_volume(user_id, project, size, source_type, source_uuid,
                    volume_type, name=None, description=None, index=None,
                    delete_on_termination=True):
+    """Create the volume in the DB and update the user quota.
+
+    This function is can be called from two different places:
+    1) During server creation, when creating the volumes of a new server
+    2) During volume creation.
+
+    Note that the regardless whether the volume has been created in the backend
+    or not, the quota of the user will be updated beforehand.
+    """
 
     utils.check_name_length(name, Volume.NAME_LENGTH,
                             "Volume name is too long")
     utils.check_name_length(description, Volume.DESCRIPTION_LENGTH,
                             "Volume description is too long")
     validate_volume_termination(volume_type, delete_on_termination)
-
-    if index is None:
-        # Counting a server's volumes is safe, because we have an
-        # X-lock on the server.
-        index = server.volumes.filter(deleted=False).count()
 
     if size is not None:
         try:
@@ -200,23 +279,27 @@ def _create_volume(server, user_id, project, size, source_type, source_uuid,
 
     volume = Volume.objects.create(userid=user_id,
                                    project=project,
+                                   index=index,
                                    size=size,
                                    volume_type=volume_type,
                                    name=name,
-                                   machine=server,
                                    description=description,
                                    delete_on_termination=delete_on_termination,
                                    source=source,
                                    source_version=source_version,
                                    origin=origin,
-                                   index=index,
                                    status="CREATING")
 
     # Store the size of the origin in the volume object but not in the DB.
     # We will have to change this in order to support detachable volumes.
+    # FIXME: What does this mean?
     volume.origin_size = origin_size
 
     return volume
+
+
+def attach(*args, **kwargs):
+    pass
 
 
 @transaction.commit_on_success
