@@ -107,7 +107,7 @@ class Command(SynnefoCommand):
 
         if user_id is None and server_id is None:
             raise CommandError("Please specify the id of a user or a server")
-        elif user_id is None and server is not None
+        elif user_id is None and server_id is not None:
             user_id = vm.userid
 
         if volume_type_id is not None:
